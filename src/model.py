@@ -172,7 +172,38 @@ def build_model(instance: Instance) -> Model:
             )
     print(f"After C10: +{m.number_of_constraints - before} constraints (total: {m.number_of_constraints})")
             
-
+# --- Objective: minimize total penalty ---
+    
+    # Term 1: unsatisfied positive requests
+    # For each (e, j, p) in A_e^+, pay q_{ejp} if x_{ejp} = 0
+    term1 = m.sum(
+        weight * (1 - x[(e, j, p)])
+        for (e, j, p), weight in instance.on_requests.items()
+    )
+    
+    # Term 2: violated negative requests
+    # For each (e, j, p) in A_e^-, pay p_{ejp} if x_{ejp} = 1
+    term2 = m.sum(
+        weight * x[(e, j, p)]
+        for (e, j, p), weight in instance.off_requests.items()
+    )
+    
+    # Term 3: understaffing penalty
+    term3 = m.sum(
+        instance.under_penalty[(j, p)] * y_under[(j, p)]
+        for j in range(instance.h)
+        for p in instance.shifts
+    )
+    
+    # Term 4: overstaffing penalty
+    term4 = m.sum(
+        instance.over_penalty[(j, p)] * y_over[(j, p)]
+        for j in range(instance.h)
+        for p in instance.shifts
+    )
+    
+    m.minimize(term1 + term2 + term3 + term4)
+    
     return m
 
 
