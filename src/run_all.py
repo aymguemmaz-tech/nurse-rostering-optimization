@@ -48,6 +48,7 @@ def main():
         # Write the header row
         writer.writerow(["instance", "employees", "days", "shifts",
                          "status", "objective", "solve_time_s"])
+        csvfile.flush()  # save header immediately
 
         # Loop through every instance
         for filename in instance_files:
@@ -83,12 +84,14 @@ def main():
                     result["objective"],
                     f"{result['solve_time']:.2f}"
                 ])
+                csvfile.flush()  # save to disk immediately after each instance
 
             except Exception as e:
                 # If something goes wrong, log the error and continue
                 print(f"ERROR — {e}")
                 writer.writerow([instance_name, "?", "?", "?",
                                  f"ERROR: {e}", None, None])
+                csvfile.flush()  # save error row immediately too
 
     print("\n" + "=" * 60)
     print(f"All done! Results saved to: {OUTPUT_CSV}")
