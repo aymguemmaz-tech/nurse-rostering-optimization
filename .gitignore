@@ -17,7 +17,6 @@ env/
 Thumbs.db
 
 # Project-specific (large outputs)
-Results/*.csv
 *.log
 
 # CPLEX artifacts

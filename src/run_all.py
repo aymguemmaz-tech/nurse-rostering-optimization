@@ -86,6 +86,20 @@ def main():
                 ])
                 csvfile.flush()  # save to disk immediately after each instance
 
+                # Save the actual schedule grid to a separate CSV
+                if result.get("schedule") is not None:
+                    schedule_path = os.path.join(RESULTS_DIR, f"{instance_name}_schedule.csv")
+                    with open(schedule_path, "w", newline="") as sch_file:
+                        sch_writer = csv.writer(sch_file)
+                        # Write header
+                        sch_writer.writerow(["employee"] + list(range(instance.h)))
+                        # Write rows
+                        for e in instance.employees:
+                            row = [e]
+                            for j in range(instance.h):
+                                row.append(result["schedule"][e][j])
+                            sch_writer.writerow(row)
+
             except Exception as e:
                 # If something goes wrong, log the error and continue
                 print(f"ERROR — {e}")
