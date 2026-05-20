@@ -23,7 +23,7 @@ OUTPUT_CSV     = os.path.join(RESULTS_DIR, "results.csv")
 
 # How many seconds CPLEX is allowed to spend on each instance.
 # Small instances solve in seconds; large ones may hit this limit.
-TIME_LIMIT = 120   # seconds
+TIME_LIMIT = 1500
 
 
 def main():
