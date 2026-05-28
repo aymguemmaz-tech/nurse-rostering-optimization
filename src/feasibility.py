@@ -8,6 +8,8 @@ explain in a report or presentation.
 
 import argparse
 import csv
+import os
+import re
 from dataclasses import dataclass, field
 
 from parser import Instance, parse_instance
@@ -270,18 +272,158 @@ def print_report(report: FeasibilityReport) -> None:
             )
 
 
+def coverage_difference_count(report: FeasibilityReport) -> int:
+    """Count day/shift cells with shortage or surplus."""
+
+    return sum(1 for delta in report.coverage_deltas if delta[4] > 0 or delta[5] > 0)
+
+
+def check_one_file(instance_path: str, schedule_path: str, show_details: bool = True):
+    """Check one instance file against one schedule CSV file."""
+
+    instance = parse_instance(instance_path)
+    schedule = load_schedule_csv(schedule_path)
+    report = check_feasibility(instance, schedule)
+
+    if show_details:
+        print(f"\nInstance : {instance_path}")
+        print(f"Schedule : {schedule_path}")
+        print_report(report)
+
+    return report
+
+
+def instance_name_from_schedule(schedule_file: str) -> str:
+    """
+    Convert a schedule filename to its instance name.
+
+    Examples:
+        Instance1_schedule.csv -> Instance1
+        Instance1_schedule_docplex.csv -> Instance1
+    """
+
+    filename = os.path.splitext(os.path.basename(schedule_file))[0]
+    return filename.split("_schedule")[0]
+
+
+def check_all_files(data_dir: str, results_dir: str) -> int:
+    """
+    Check all schedule CSV files in Results against instance txt files in Data.
+
+    The function also saves a summary to:
+        Results/feasibility_results.csv
+    """
+
+    schedule_files = sorted(
+        [
+            file
+            for file in os.listdir(results_dir)
+            if file.endswith(".csv") and "_schedule" in file
+        ],
+        key=instance_sort_key,
+    )
+
+    if not schedule_files:
+        print(f"No schedule CSV files found in: {results_dir}")
+        return 1
+
+    rows = []
+    all_feasible = True
+
+    print(f"Found {len(schedule_files)} schedule file(s).")
+    print("=" * 70)
+
+    for schedule_file in schedule_files:
+        instance_name = instance_name_from_schedule(schedule_file)
+        instance_path = os.path.join(data_dir, f"{instance_name}.txt")
+        schedule_path = os.path.join(results_dir, schedule_file)
+
+        if not os.path.exists(instance_path):
+            print(f"{schedule_file}: missing instance file {instance_name}.txt")
+            rows.append([schedule_file, instance_name, "MISSING_INSTANCE", "", ""])
+            all_feasible = False
+            continue
+
+        report = check_one_file(instance_path, schedule_path, show_details=False)
+        status = "feasible" if report.is_feasible else "not feasible"
+        violations = len(report.violations)
+        coverage_differences = coverage_difference_count(report)
+
+        if not report.is_feasible:
+            all_feasible = False
+
+        print(
+            f"{schedule_file}: {status}, "
+            f"violations={violations}, "
+            f"coverage_differences={coverage_differences}"
+        )
+
+        rows.append([
+            schedule_file,
+            instance_name,
+            status,
+            violations,
+            coverage_differences,
+        ])
+
+    output_path = os.path.join(results_dir, "feasibility_results.csv")
+    try:
+        file = open(output_path, "w", newline="")
+    except PermissionError:
+        output_path = os.path.join(results_dir, "feasibility_results_new.csv")
+        file = open(output_path, "w", newline="")
+
+    with file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "schedule_file",
+            "instance",
+            "status",
+            "violations",
+            "coverage_differences",
+        ])
+        writer.writerows(rows)
+
+    print("=" * 70)
+    print(f"Summary saved to: {output_path}")
+
+    return 0 if all_feasible else 1
+
+
+def instance_sort_key(filename: str) -> tuple[int, str]:
+    """Sort Instance1 before Instance2 and Instance10."""
+
+    match = re.search(r"Instance(\d+)", filename)
+    if match:
+        return int(match.group(1)), filename
+    return 999999, filename
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check schedule feasibility.")
-    parser.add_argument("instance", help="path to the instance .txt file")
-    parser.add_argument("schedule", help="path to the schedule CSV file")
+    parser.add_argument("instance", nargs="?", help="path to one instance .txt file")
+    parser.add_argument("schedule", nargs="?", help="path to one schedule CSV file")
+    parser.add_argument(
+        "--data-dir",
+        default=os.path.join("Data", "Instances"),
+        help="folder containing instance .txt files",
+    )
+    parser.add_argument(
+        "--results-dir",
+        default="Results",
+        help="folder containing schedule CSV files",
+    )
     args = parser.parse_args()
 
-    instance = parse_instance(args.instance)
-    schedule = load_schedule_csv(args.schedule)
-    report = check_feasibility(instance, schedule)
-    print_report(report)
+    if args.instance and args.schedule:
+        report = check_one_file(args.instance, args.schedule)
+        return 0 if report.is_feasible else 1
 
-    return 0 if report.is_feasible else 1
+    if not args.instance and not args.schedule:
+        return check_all_files(args.data_dir, args.results_dir)
+
+    parser.error("provide both instance and schedule, or provide no positional arguments")
+    return 1
 
 
 if __name__ == "__main__":
