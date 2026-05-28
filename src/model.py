@@ -4,7 +4,7 @@ from parser import Instance
 
 def build_model(instance: Instance):
     """
-    Build the nurse rostering ILP using PuLP + CBC (free, no size limits).
+    Build the nurse rostering ILP using PuLP.
     Returns the (prob, x, t, y_under, y_over) tuple.
     """
 
@@ -51,7 +51,6 @@ def build_model(instance: Instance):
                 pulp.lpSum(x[(e, j, p)] for p in instance.shifts) <= 1,
                 f"C1_{e}_{j}"
             )
-    print(f"After C1: {n_constraints()} constraints total")
 
     # Constraint 2 — shift sequence incompatibility
     for e in instance.employees:
@@ -62,7 +61,6 @@ def build_model(instance: Instance):
                         x[(e, j, p)] + x[(e, j + 1, q)] <= 1,
                         f"C2_{e}_{j}_{p}_{q}"
                     )
-    print(f"After C2: {n_constraints()} constraints total")
 
     # Constraint 3 — max times each employee works each shift
     for e in instance.employees:
@@ -71,7 +69,6 @@ def build_model(instance: Instance):
                 pulp.lpSum(x[(e, j, p)] for j in range(instance.h)) <= instance.max_shifts[(e, p)],
                 f"C3_{e}_{p}"
             )
-    print(f"After C3: {n_constraints()} constraints total")
 
     # Constraint 4 — bounded total working time
     for e in instance.employees:
@@ -82,7 +79,6 @@ def build_model(instance: Instance):
         )
         prob += (total_minutes >= instance.min_total_min[e], f"C4_min_{e}")
         prob += (total_minutes <= instance.max_total_min[e], f"C4_max_{e}")
-    print(f"After C4: {n_constraints()} constraints total")
 
     # Constraint 5 — max consecutive working days
     for e in instance.employees:
@@ -96,7 +92,6 @@ def build_model(instance: Instance):
                 ) <= c_max,
                 f"C5_{e}_{j}"
             )
-    print(f"After C5: {n_constraints()} constraints total")
 
     # Constraint 6 — min consecutive working days
     for e in instance.employees:
@@ -114,7 +109,6 @@ def build_model(instance: Instance):
                     (1 - works_before) + works_inside + (1 - works_after) <= s + 1,
                     f"C6_{e}_{s}_{j}"
                 )
-    print(f"After C6: {n_constraints()} constraints total")
 
     # Constraint 7 — min consecutive days off
     for e in instance.employees:
@@ -132,7 +126,6 @@ def build_model(instance: Instance):
                     works_before + off_inside + works_after <= s + 1,
                     f"C7_{e}_{s}_{j}"
                 )
-    print(f"After C7: {n_constraints()} constraints total")
 
     # Constraint 8 — max weekends worked
     for e in instance.employees:
@@ -150,7 +143,6 @@ def build_model(instance: Instance):
             pulp.lpSum(t[(e, w)] for w in range(instance.num_weekends)) <= instance.max_weekends[e],
             f"C8b_{e}"
         )
-    print(f"After C8: {n_constraints()} constraints total")
 
     # Constraint 9 — requested days off (hard constraint)
     for e in instance.employees:
@@ -159,7 +151,6 @@ def build_model(instance: Instance):
                 pulp.lpSum(x[(e, j, p)] for p in instance.shifts) == 0,
                 f"C9_{e}_{j}"
             )
-    print(f"After C9: {n_constraints()} constraints total")
 
     # Constraint 10 — shift coverage with shortage/surplus
     for j in range(instance.h):
@@ -171,7 +162,6 @@ def build_model(instance: Instance):
                 == instance.coverage[(j, p)],
                 f"C10_{j}_{p}"
             )
-    print(f"After C10: {n_constraints()} constraints total")
 
     # ── Objective: minimise total penalty ────────────────────────────────────
 
@@ -204,7 +194,6 @@ def build_model(instance: Instance):
     prob += term1 + term2 + term3 + term4
 
     return prob, x, t, y_under, y_over
-
 
 if __name__ == "__main__":
     import os

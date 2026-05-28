@@ -1,0 +1,5 @@
+instance,employees,days,shifts,status,objective,solve_time_s
+Instance1,8,14,1,Optimal,607.0,0.24
+Instance2,14,14,2,Optimal,828.0,2.71
+Instance3,20,14,3,Optimal,1001.0,1.15
+Instance4,10,28,2,Optimal,1716.0,9.39

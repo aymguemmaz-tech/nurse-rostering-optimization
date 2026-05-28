@@ -2,15 +2,16 @@ import os
 import pulp
 from parser import parse_instance, Instance
 from model import build_model
+from ros_writer import write_ros
 
 
-def solve(instance: Instance, time_limit: int = 60):
+def solve(instance: Instance, time_limit: int = 500):
     """
-    Build and solve the ILP model for the given instance using PuLP + CBC.
+    Build and solve the ILP model for the given instance using PuLP + CPLEX Academic.
 
     Args:
         instance   : parsed Instance object
-        time_limit : max seconds CBC can spend solving
+        time_limit : max seconds CPLEX can spend solving
 
     Returns:
         dict with keys: status, objective, solve_time, schedule
@@ -18,17 +19,25 @@ def solve(instance: Instance, time_limit: int = 60):
     """
     prob, x, t, y_under, y_over = build_model(instance)
 
-    # CBC solver — free, open-source, no size limits
-    solver = pulp.PULP_CBC_CMD(
+    # Use the Academic CPLEX engine directly
+    cplex_path = r"C:\Program Files\IBM\ILOG\CPLEX_Studio2212\cplex\bin\x64_win64\cplex.exe"
+    
+    solver = pulp.CPLEX_CMD(
+        path=cplex_path,
         timeLimit=time_limit,
-        msg=False          # suppress solver log; set to True to see CBC output
+        msg=False          # Set to True to see CPLEX output
     )
 
     prob.solve(solver)
 
     status = pulp.LpStatus[prob.status]   # e.g. "Optimal", "Infeasible", "Not Solved"
-    obj    = pulp.value(prob.objective)
-    solve_time = prob.solutionTime        # seconds taken by CBC
+    
+    try:
+        obj = pulp.value(prob.objective)
+    except:
+        obj = None
+        
+    solve_time = prob.solutionTime
 
     if prob.status != 1:                  # 1 = Optimal / feasible solution found
         return {
@@ -81,7 +90,7 @@ def print_schedule(schedule, instance: Instance):
 
 if __name__ == "__main__":
     script_dir    = os.path.dirname(os.path.abspath(__file__))
-    instance_path = os.path.join(script_dir, "..", "Data", "Instances", "Instance1.txt")
+    instance_path = os.path.join(script_dir, "..", "Data", "Instances", "Instance14.txt")
 
     instance = parse_instance(instance_path)
     print(f"\nSolving {os.path.basename(instance_path)}...")
@@ -97,3 +106,15 @@ if __name__ == "__main__":
     if result["schedule"] is not None:
         print("\nSchedule:")
         print_schedule(result["schedule"], instance)
+
+        instance_name = os.path.splitext(
+            os.path.basename(instance_path)
+        )[0]
+
+        output_name = f"{instance_name}_solution.ros"
+        
+        write_ros(
+        result["schedule"],
+        instance,
+        output_name
+        )
