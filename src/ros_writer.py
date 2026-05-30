@@ -60,14 +60,24 @@ def write_ros(schedule, instance, filename):
         ET.SubElement(contract, "MinSeq",
                       label="Min consecutive shifts",
                       value=str(instance.min_consec[employee]), shift="$")
+        # ValidShifts = only the shift types this employee is allowed to work,
+        # i.e. those with a positive MaxShifts limit. A limit of 0 means the
+        # shift is forbidden for this employee, so it is left out here.
+        allowed = [
+            s for s in instance.shifts
+            if instance.max_shifts.get((employee, s), 0) > 0
+        ]
+        if not allowed:                      # fallback: never write an empty list
+            allowed = list(instance.shifts)
         valid = ET.SubElement(contract, "ValidShifts")
-        valid.set("shift", ",".join(instance.shifts))
+        valid.set("shift", ",".join(allowed))
 
     # ── Employees ─────────────────────────────────────────────────────────
     employees_xml = ET.SubElement(root, "Employees")
     for employee in instance.employees:
         emp_xml = ET.SubElement(employees_xml, "Employee", ID=employee)
-        ET.SubElement(emp_xml, "ContractID").text = "All"
+        # Each employee uses their own contract (which carries their limits
+        # and valid shifts). Only one ContractID per employee.
         ET.SubElement(emp_xml, "ContractID").text = employee
 
     # ── Fixed assignments (the solved schedule) ───────────────────────────
